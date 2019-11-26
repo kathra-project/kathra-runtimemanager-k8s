@@ -190,7 +190,8 @@ func (service HelmClientService) InstallRelease(namespace string, release string
 	for k, v := range values { 
 		cmd = cmd + " --set "+k+"="+v
 	}
-	_, err := exec.Command("git", "bash", "-c", "/bin/bash -c '" + cmd + "'").Output()
+	//_, err := exec.Command("git", "bash", "-c", "/bin/bash -c '" + cmd + "'").Output()
+	_, err := exec.Command("/bin/bash ", "-c", cmd).Output()
 	if err != nil {
 		log.Println(err)
 		return err
