@@ -25,6 +25,6 @@ Using helm-client and kubctl, it can do :
 ```
 go run cmd/kathra-runtime-environment-manager-server/main.go
 ```
-## Open Api Spec
+## Open API Spec
 
 https://gitlab.com/kathra/kathra/kathra-services/kathra-runtimemanager/kathra-runtimemanager-api/raw/master/swagger.yaml
