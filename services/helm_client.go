@@ -2,58 +2,66 @@ package services
 
 import (
 	"bytes"
-	"strconv"
+	"encoding/json"
 	"log"
 	"os"
 	"os/exec"
-	"gopkg.in/yaml.v2"
+	"strconv"
+	"strings"
+
 	"github.com/jeremywohl/flatten"
-	"encoding/json"
+	"gopkg.in/yaml.v2"
 )
 
+// HelmCatalogRepository struct
 type HelmCatalogRepository struct {
-	Name string 
-	Url string
+	Name     string
+	Url      string
 	Username string
 	Password string
 }
 
+// HelmList struct
 type HelmList struct {
-	Next string `yaml:"Next,omitempty"`
 	Releases []HelmRelease `yaml:"Releases,omitempty"`
 }
 
+// HelmRelease struct
 type HelmRelease struct {
-	Name string `yaml:"Name,omitempty"`
-	Revision string `yaml:"Revision,omitempty"`
-	Updated string `yaml:"Updated,omitempty"`
-	Status string `yaml:"Status,omitempty"`
-	Chart string `yaml:"Chart,omitempty"`
-	AppVersion string `yaml:"AppVersion,omitempty"`
-	Namespace string `yaml:"Namespace,omitempty"`
+	Name       string `yaml:"name,omitempty"`
+	Revision   string `yaml:"revision,omitempty"`
+	Updated    string `yaml:"updated,omitempty"`
+	Status     string `yaml:"status,omitempty"`
+	Chart      string `yaml:"chart,omitempty"`
+	AppVersion string `yaml:"app_version,omitempty"`
+	Namespace  string `yaml:"namespace,omitempty"`
 }
 
+// HelmReleaseValues struct
 type HelmReleaseValues struct {
-	Key string `yaml:"Name,omitempty"`
+	Key   string `yaml:"Name,omitempty"`
 	Value string `yaml:"Revision,omitempty"`
 }
 
-type HelmClientService struct {  
+// HelmClientService struct
+type HelmClientService struct {
 	repositories []HelmCatalogRepository
-	binary string
+	binary       string
 }
 
-func NewHelmClientService() HelmClientService {  
-	svc := HelmClientService {repositories: []HelmCatalogRepository{}, binary: "helm"}
+// NewHelmClientService create new instance
+func NewHelmClientService() HelmClientService {
+	svc := HelmClientService{repositories: []HelmCatalogRepository{}, binary: "helm3"}
 	//svc.HelmInitKathraRepository()
 	//svc.HelmUpdate()
 	svc.GetReleasesFromNamespace("my-team")
 	return svc
 }
 
+// HelmClientServiceInstance instance
 var HelmClientServiceInstance = NewHelmClientService()
 
-
+// HelmInitKathraRepository init local repository
 func (service HelmClientService) HelmInitKathraRepository() {
 	var kathraRepo = service.getKathraCatalogRepository()
 	if kathraRepo.Name == "" {
@@ -68,8 +76,9 @@ func (service HelmClientService) HelmInitKathraRepository() {
 	}
 }
 
+// HelmFindLocalRepository return local repository name
 func (service HelmClientService) HelmFindLocalRepository(catalogRepository HelmCatalogRepository) (string, error) {
-	cmd := exec.Command("/bin/bash", "-c", service.binary+" repo list  | awk '{if ($2 == \""+catalogRepository.Url+"\") {print $1;}}'")
+	cmd := exec.Command("/bin/sh", "-c", service.binary+" repo list  | awk '{if ($2 == \""+catalogRepository.Url+"\") {print $1;}}'")
 	var out bytes.Buffer
 	var stdErr bytes.Buffer
 	cmd.Stdout = &out
@@ -105,6 +114,7 @@ func (service HelmClientService) getKathraCatalogRepository() HelmCatalogReposit
 		Password: os.Getenv("KATHRA_REPO_SECRET")}
 }
 
+// HelmUpdate update local repo
 func (service HelmClientService) HelmUpdate() error {
 	cmd := exec.Command(service.binary, "repo", "update")
 	var stdErr, stdOut bytes.Buffer
@@ -120,6 +130,7 @@ func (service HelmClientService) HelmUpdate() error {
 	return nil
 }
 
+// HelmEntry helm entry
 type HelmEntry struct {
 	Name          string
 	LocalName     string
@@ -132,8 +143,9 @@ type HelmEntry struct {
 var entriesCached = []HelmEntry{}
 var entriesAllVersionsCached = []HelmEntry{}
 
+// HelmAddRepository add new repository
 func (service HelmClientService) HelmAddRepository(catalogRepository HelmCatalogRepository) error {
-	cmdAddRepo := exec.Command("/bin/bash", "-c", "helm repo add "+catalogRepository.Name+" --username="+catalogRepository.Username+" --password="+catalogRepository.Password+" "+catalogRepository.Url+"")
+	cmdAddRepo := exec.Command("/bin/sh", "-c", "helm repo add "+catalogRepository.Name+" --username="+catalogRepository.Username+" --password="+catalogRepository.Password+" "+catalogRepository.Url+"")
 	errAddRepo := cmdAddRepo.Run()
 	var stdErr bytes.Buffer
 	cmdAddRepo.Stderr = &stdErr
@@ -145,53 +157,58 @@ func (service HelmClientService) HelmAddRepository(catalogRepository HelmCatalog
 	return nil
 }
 
-func (service HelmClientService) GetReleasesFromNamespace(namespace string)([]*HelmRelease, error) {
-	output, err := exec.Command(service.binary, "list","--namespace",namespace,"--output","yaml").Output()
+// GetReleasesFromNamespace get all release from namespace
+func (service HelmClientService) GetReleasesFromNamespace(namespace string) ([]*HelmRelease, error) {
+	output, err := exec.Command(service.binary, "list", "--namespace", namespace, "--output", "yaml").Output()
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
-	var helmList HelmList
-	errUnmarshal := yaml.Unmarshal(output, &helmList)
+	var helmReleases []HelmRelease
+	errUnmarshal := yaml.Unmarshal(output, &helmReleases)
 	if errUnmarshal != nil {
 		log.Printf("error: %v", errUnmarshal)
 		return nil, errUnmarshal
 	}
-	var releases []*HelmRelease;
-	for i := range helmList.Releases {
-		releases = append(releases, &helmList.Releases[i])
+	var releases []*HelmRelease
+	for i := range helmReleases {
+		releases = append(releases, &helmReleases[i])
 	}
 	return releases, nil
 }
 
-func (service HelmClientService) GetReleaseFromNamespace(namespace string, release string)(*HelmRelease, error) {
-	output, err := exec.Command(service.binary, "list","--namespace",namespace, release,"--output","yaml").Output()
+// GetReleaseFromNamespace get all release from namespace and release name
+func (service HelmClientService) GetReleaseFromNamespace(namespace string, release string) (*HelmRelease, error) {
+	output, err := exec.Command(service.binary, "list", "--namespace", namespace, "--output", "yaml").Output()
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
-	var helmList HelmList
-	errUnmarshal := yaml.Unmarshal(output, &helmList)
+	var helmReleases []HelmRelease
+	errUnmarshal := yaml.Unmarshal(output, &helmReleases)
 	if errUnmarshal != nil {
 		log.Printf("error: %v", errUnmarshal)
 		return nil, errUnmarshal
 	}
-	for i := range helmList.Releases {
-		if (helmList.Releases[i].Name == release) {
-			return &helmList.Releases[i], nil
+	for i := range helmReleases {
+		if helmReleases[i].Name == release {
+			return &helmReleases[i], nil
 		}
 	}
 	return nil, nil
 }
 
-func (service HelmClientService) InstallRelease(namespace string, release string, chart string, version string, values map[string]string) (error) {
-	var cmd = service.binary+" install --name "+release+" "+chart+" --namespace "+namespace+" --version="+version
-	
-	for k, v := range values { 
-		cmd = cmd + " --set "+k+"="+v
+// InstallRelease install release
+func (service HelmClientService) InstallRelease(namespace string, release string, chart string, version string, values map[string]string) error {
+	var cmd = service.binary + " install " + release + " " + chart + " --namespace " + namespace
+	if version != "" {
+		cmd = cmd + " --version=" + version
 	}
-	//_, err := exec.Command("git", "bash", "-c", "/bin/bash -c '" + cmd + "'").Output()
-	_, err := exec.Command("/bin/bash ", "-c", cmd).Output()
+	for k, v := range values {
+		cmd = cmd + " --set " + k + "=" + v
+	}
+	log.Println(cmd)
+	_, err := exec.Command("/bin/sh", "-c", cmd).Output()
 	if err != nil {
 		log.Println(err)
 		return err
@@ -199,10 +216,10 @@ func (service HelmClientService) InstallRelease(namespace string, release string
 	return nil
 }
 
-func (service HelmClientService) DeleteReleaseFromNamespace(namespace string, release string) (error) {
+// DeleteReleaseFromNamespace delete release
+func (service HelmClientService) DeleteReleaseFromNamespace(namespace string, release string) error {
 	// Helm 3
-	//_, err := exec.Command(service.binary, "delete","--namespace",namespace, release,"--purge").Output()
-	_, err := exec.Command(service.binary, "delete", release,"--purge").Output()
+	_, err := exec.Command(service.binary, "delete", "--namespace", namespace, release, "--purge").Output()
 	if err != nil {
 		log.Println(err)
 		return err
@@ -210,55 +227,60 @@ func (service HelmClientService) DeleteReleaseFromNamespace(namespace string, re
 	return nil
 }
 
-func (service HelmClientService) GetReleaseValueFromNamespace(namespace string, release string)(map[string]string, error) {
-	// Helm 3
-	//output, err := exec.Command(service.binary, "get","values","--namespace",namespace,"--output","yaml").Output()
-	output, err := exec.Command(service.binary, "get","values",release,"--output","json").Output()
+// GetReleaseValueFromNamespace get release values
+func (service HelmClientService) GetReleaseValueFromNamespace(namespace string, release string) (map[string]string, error) {
+
+	valuesAsString := make(map[string]string)
+	output, err := exec.Command(service.binary, "get", "values", "--namespace", namespace, release, "--output", "yaml").Output()
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
-	
+
+	if strings.TrimSpace(string(output)) == "null" {
+		return valuesAsString, nil
+	}
+
 	flat, errFlatten := flatten.FlattenString(string(output), "", flatten.DotStyle)
 	if errFlatten != nil {
 		log.Printf("error: %v", errFlatten)
 		return nil, errFlatten
 	}
 
-	values := make(map[string]FlexString)
+	values := make(map[string]flexString)
 	errUnmarshal := json.Unmarshal([]byte(flat), &values)
 	if errUnmarshal != nil {
 		return nil, errUnmarshal
 	}
-	valuesAsString := make(map[string]string)
-	for k, v := range values { 
+	for k, v := range values {
 		valuesAsString[k] = v.Value
 	}
 	return valuesAsString, nil
 }
 
-type FlexString struct {
+type flexString struct {
 	Value string
 }
-func (fi *FlexString) UnmarshalJSON(b []byte) error {
+
+func (fi *flexString) UnmarshalJSON(b []byte) error {
 	if b[0] != '"' {
-		if (b[0] == 't' ) {
-			*fi = FlexString{Value:  "true"}
-		} else if (b[0] == 'f') {
-			*fi = FlexString{Value:  "false"}
+		if b[0] == 't' {
+			*fi = flexString{Value: "true"}
+		} else if b[0] == 'f' {
+			*fi = flexString{Value: "false"}
 		} else {
 			var i int
 			if err := json.Unmarshal(b, &i); err != nil {
 				return err
 			}
-			*fi = FlexString{Value:  strconv.Itoa(i)}
+			*fi = flexString{Value: strconv.Itoa(i)}
 		}
 	} else {
 		var s string
 		if err := json.Unmarshal(b, &s); err != nil {
 			return err
 		}
-		*fi = FlexString{Value: s}
+		*fi = flexString{Value: s}
 	}
 	return nil
 }

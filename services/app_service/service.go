@@ -1,31 +1,29 @@
-/*
- * Kathra Runtime Environment Manager
- *
- * KATHRA Runtime Environment Management API
- *
- * AppService functions
- */
 package app_service
 
 import (
 	"context"
+	"log"
+
 	k8sClt "github.com/ericchiang/k8s"
 	corev1 "github.com/ericchiang/k8s/apis/core/v1"
 	api "gitlab.com/kathra/kathra/kathra-services/kathra-runtimemanager/kathra-runtimemanager-go/kathra-runtimemanager-k8s/models"
 	svc "gitlab.com/kathra/kathra/kathra-services/kathra-runtimemanager/kathra-runtimemanager-go/kathra-runtimemanager-k8s/services"
-	"log"
 )
 
+// AppServiceService struct
 type AppServiceService struct {
 	client *k8sClt.Client
 }
 
+// NewAppServiceService constructor
 func NewAppServiceService() AppServiceService {
 	return AppServiceService{client: svc.KubernetesClientServiceInstance.Client}
 }
 
+// Instance AppServiceService
 var Instance = NewAppServiceService()
 
+// List instance
 func (service AppServiceService) List(namespaceProviderID string, applicationProviderID string) ([]*api.RuntimeAppService, error) {
 	var svcList corev1.ServiceList
 	var list = []*api.RuntimeAppService{}
@@ -40,6 +38,7 @@ func (service AppServiceService) List(namespaceProviderID string, applicationPro
 	return list, nil
 }
 
+// Get AppServiceService
 func (service AppServiceService) Get(namespaceProviderID string, applicationProviderID string, serviceProviderID string) (*api.RuntimeAppService, error) {
 	var svcList corev1.ServiceList
 	labels := new(k8sClt.LabelSelector)

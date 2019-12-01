@@ -18,6 +18,7 @@ Using helm-client and kubctl, it can do :
 | `KATHRA_REPO_CREDENTIAL_ID`   | Chart repository Credential ID           |                                |
 | `KATHRA_REPO_SECRET`          | Chart repository Credential secret       |                                |
 | `HELM_UPDATE_INTERVAL`            | Cron settings for helm update            | `* * * * *`                    |
+| `KUBERNETES_CLIENT_CONFIG`            | Kubernetes config file            | `* * * * *`                    |
 
 
 ## How to run
