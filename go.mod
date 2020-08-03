@@ -23,4 +23,5 @@ require (
 	github.com/mattn/go-isatty v0.0.10 // indirect
 	golang.org/x/net v0.0.0-20191119073136-fc4aabc6c914
 	gopkg.in/yaml.v2 v2.2.4
+
 )
